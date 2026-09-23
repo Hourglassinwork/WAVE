@@ -1699,7 +1699,36 @@ themeSystem.playerInspector.status.TextSize = 8
 themeSystem.playerInspector.status.TextXAlignment = Enum.TextXAlignment.Left
 themeSystem.playerInspector.status.Parent = themeSystem.playerInspector.card
 
-local creditsCard = addCard("CreditsCard", 112, 35)
+themeSystem.simulatedDupe = {}
+themeSystem.simulatedDupe.card = addCard("SimulatedDupeCard", 102, 35)
+addCardTitle(themeSystem.simulatedDupe.card, "Simulated Dupe", "Create a harmless local visual copy of your currently held Tool.")
+themeSystem.simulatedDupe.button = Instance.new("TextButton")
+themeSystem.simulatedDupe.button.Name = "SimulatedDupeButton"
+themeSystem.simulatedDupe.button.AnchorPoint = Vector2.new(1, 0.5)
+themeSystem.simulatedDupe.button.Position = UDim2.new(1, -17, 0, 57)
+themeSystem.simulatedDupe.button.Size = UDim2.fromOffset(118, 30)
+themeSystem.simulatedDupe.button.BackgroundColor3 = colors.accent
+themeSystem.simulatedDupe.button.BorderSizePixel = 0
+themeSystem.simulatedDupe.button.AutoButtonColor = false
+themeSystem.simulatedDupe.button.Font = Enum.Font.GothamBold
+themeSystem.simulatedDupe.button.Text = "SIMULATE DUPE"
+themeSystem.simulatedDupe.button.TextColor3 = colors.text
+themeSystem.simulatedDupe.button.TextSize = 9
+themeSystem.simulatedDupe.button.Parent = themeSystem.simulatedDupe.card
+addCorner(themeSystem.simulatedDupe.button, 8)
+themeSystem.styleButton(themeSystem.simulatedDupe.button)
+themeSystem.simulatedDupe.status = Instance.new("TextLabel")
+themeSystem.simulatedDupe.status.Position = UDim2.fromOffset(17, 76)
+themeSystem.simulatedDupe.status.Size = UDim2.new(1, -155, 0, 16)
+themeSystem.simulatedDupe.status.BackgroundTransparency = 1
+themeSystem.simulatedDupe.status.Font = Enum.Font.Gotham
+themeSystem.simulatedDupe.status.Text = "LOCAL VISUAL COPY ONLY"
+themeSystem.simulatedDupe.status.TextColor3 = colors.faint
+themeSystem.simulatedDupe.status.TextSize = 8
+themeSystem.simulatedDupe.status.TextXAlignment = Enum.TextXAlignment.Left
+themeSystem.simulatedDupe.status.Parent = themeSystem.simulatedDupe.card
+
+local creditsCard = addCard("CreditsCard", 112, 36)
 addCardTitle(creditsCard, "Created by Hourglassinthemaking", "The sole owner and creator of WAVE.")
 local creditsText = Instance.new("TextLabel")
 creditsText.Position = UDim2.fromOffset(17, 68)
@@ -3395,7 +3424,7 @@ local function showTab(tabName)
 		Movement = {speedCard, jumpCard, gravityCard, utilityCard, flyCard, vehicleFlyCard, floatCard, infiniteJumpCard, teleportClick.card, gotoPlayer.card, freeze.card},
 		Visuals = {fullBrightCard, freecamCard, zoom.card, fieldOfView.card, espCard, themeSystem.healthDisplay.card, themeSystem.waveTags.card, themeSystem.coordinates.card, themeSystem.playerTrails.card, spectate.card},
 		Combat = {themeSystem.panic.card, godCard, freeze.card, spin.card, themeSystem.aimbot.card, themeSystem.triggerBot.card, invisibility.card, walkfling.card, espCard, themeSystem.healthDisplay.card, themeSystem.playerInspector.card},
-		Utility = {themeSystem.panic.card, teleportClick.card, gotoPlayer.card, spectate.card, themeSystem.playerInspector.card, themeSystem.instantPrompts.card, themeSystem.autoSell.card, themeSystem.randomize.card, leave.card, rejoin.card, serverHop.card, themeSystem.coordinates.card},
+		Utility = {themeSystem.panic.card, teleportClick.card, gotoPlayer.card, spectate.card, themeSystem.playerInspector.card, themeSystem.simulatedDupe.card, themeSystem.instantPrompts.card, themeSystem.autoSell.card, themeSystem.randomize.card, leave.card, rejoin.card, serverHop.card, themeSystem.coordinates.card},
 	}
 	for _, card in ipairs(cardsByTab[tabName] or {}) do card.Visible = true end
 
@@ -4773,6 +4802,66 @@ Players.PlayerRemoving:Connect(function(leavingPlayer)
 end)
 
 themeSystem.playerInspector.updateActions()
+
+function themeSystem.simulatedDupe.setStatus(message, success)
+	themeSystem.simulatedDupe.status.Text = string.upper(message)
+	themeSystem.simulatedDupe.status.TextColor3 = success == nil and colors.faint or (success and colors.success or colors.danger)
+end
+
+function themeSystem.simulatedDupe.run()
+	local character = player.Character
+	local heldTool = character and character:FindFirstChildOfClass("Tool")
+	if not heldTool then
+		themeSystem.simulatedDupe.setStatus("Hold a Tool first", false)
+		return false
+	end
+	if heldTool:GetAttribute("WaveLocalCosmeticCopy") then
+		themeSystem.simulatedDupe.setStatus("Hold the original Tool", false)
+		return false
+	end
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	if not backpack then
+		themeSystem.simulatedDupe.setStatus("Backpack is unavailable", false)
+		return false
+	end
+	local wasArchivable = heldTool.Archivable
+	heldTool.Archivable = true
+	local success, clone = pcall(function() return heldTool:Clone() end)
+	heldTool.Archivable = wasArchivable
+	if not success or not clone then
+		themeSystem.simulatedDupe.setStatus("Tool could not be copied", false)
+		return false
+	end
+	for _, descendant in ipairs(clone:GetDescendants()) do
+		if descendant:IsA("LuaSourceContainer")
+			or descendant:IsA("RemoteEvent")
+			or descendant:IsA("RemoteFunction")
+			or descendant:IsA("BindableEvent")
+			or descendant:IsA("BindableFunction")
+			or descendant:IsA("ProximityPrompt")
+			or descendant:IsA("ClickDetector")
+			or descendant:IsA("DragDetector") then
+			descendant:Destroy()
+		elseif descendant:IsA("BasePart") then
+			descendant.CanCollide = false
+			descendant.CanTouch = false
+			descendant.CanQuery = false
+		elseif descendant:IsA("Sound") then
+			descendant.Playing = false
+		end
+	end
+	clone.Name = heldTool.Name .. " (LOCAL COPY)"
+	clone.CanBeDropped = false
+	clone:SetAttribute("WaveLocalCosmeticCopy", true)
+	clone.Parent = backpack
+	themeSystem.simulatedDupe.setStatus("Local visual copy created", true)
+	return true
+end
+
+themeSystem.simulatedDupe.button.Activated:Connect(function()
+	playSound(clickSound)
+	themeSystem.simulatedDupe.run()
+end)
 
 leave.button.Activated:Connect(function()
 	playSound(clickSound)
@@ -8520,6 +8609,7 @@ themeSystem.favoriteSystem.cheatItems = {
 		{"cheat:randomize", "Randomize Everything", themeSystem.randomize.card, 32},
 		{"cheat:playertrails", "Player Trails", themeSystem.playerTrails.card, 33},
 		{"cheat:playerinspector", "Player Inspector", themeSystem.playerInspector.card, 34},
+		{"cheat:simulateddupe", "Simulated Dupe", themeSystem.simulatedDupe.card, 35},
 	}
 
 for _, cheatData in ipairs(themeSystem.favoriteSystem.cheatItems) do
@@ -8865,6 +8955,10 @@ themeSystem.keybindSystem.registerNested("inspectorWaypoint", themeSystem.player
 	playSound(clickSound)
 	themeSystem.playerInspector.saveWaypoint()
 end)
+themeSystem.keybindSystem.registerCard("simulatedDupe", themeSystem.simulatedDupe.card, function()
+	playSound(clickSound)
+	themeSystem.simulatedDupe.run()
+end)
 themeSystem.keybindSystem.registerCard("activeHud", settings.activeHudCard, function()
 	playSound(clickSound)
 	activeHud.setEnabled(not activeHud.enabled)
@@ -9133,6 +9227,10 @@ end)
 themeSystem.commandBar.register("inspectwaypoint", "/inspectwaypoint", function()
 	local success = themeSystem.playerInspector.saveWaypoint()
 	return success, success and "WAYPOINT SAVED" or "SELECT AN AVAILABLE PLAYER FIRST"
+end)
+themeSystem.commandBar.register("localdupe", "/localdupe", function()
+	local success = themeSystem.simulatedDupe.run()
+	return success, success and "LOCAL VISUAL COPY CREATED" or "HOLD AN ORIGINAL TOOL FIRST"
 end)
 themeSystem.commandBar.registerToggle("activehud", "/activehud [on|off]", "activeHud", function() return activeHud.enabled end)
 
@@ -9488,6 +9586,7 @@ themeSystem.searchSystem.categoryByCard[themeSystem.autoSell.card] = "Teleport"
 themeSystem.searchSystem.categoryByCard[themeSystem.randomize.card] = "Safety"
 themeSystem.searchSystem.categoryByCard[themeSystem.playerTrails.card] = "Visual"
 themeSystem.searchSystem.categoryByCard[themeSystem.playerInspector.card] = "Player"
+themeSystem.searchSystem.categoryByCard[themeSystem.simulatedDupe.card] = "Player"
 themeSystem.searchSystem.categoryByCard[teleportClick.card] = "Teleport"
 themeSystem.searchSystem.categoryByCard[gotoPlayer.card] = "Teleport"
 themeSystem.searchSystem.categoryByCard[spectate.card] = "Visual"
@@ -9513,6 +9612,7 @@ themeSystem.searchSystem.tabsByCard = {
 	[themeSystem.instantPrompts.card] = {"Utility"}, [themeSystem.coordinates.card] = {"Visuals", "Utility"},
 	[themeSystem.autoSell.card] = {"Utility"}, [themeSystem.randomize.card] = {"Utility"},
 	[themeSystem.playerTrails.card] = {"Visuals"}, [themeSystem.playerInspector.card] = {"Combat", "Utility"},
+	[themeSystem.simulatedDupe.card] = {"Utility"},
 	[leave.card] = {"Utility"}, [rejoin.card] = {"Utility"}, [serverHop.card] = {"Utility"},
 }
 
